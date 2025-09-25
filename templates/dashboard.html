@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Expense Tracker Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .card-icon {
+            font-size: 2em;
+            margin-right: 15px;
+        }
+
+        .card h3 {
+            font-size: 1.1em;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .card .value {
+            font-size: 2.2em;
+            font-weight: 700;
+            color: #2196F3;
+            margin-top: 10px;
+        }
+
+        .card .change {
+            font-size: 0.9em;
+            margin-top: 8px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .change.positive {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .change.negative {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .chart-container h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+        }
+
+        .chart-container h3::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: #2196F3;
+            margin-right: 12px;
+            border-radius: 2px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #2196F3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9em;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-connected {
+            background: #4caf50;
+        }
+
+        .status-demo {
+            background: #ff9800;
+        }
+
+        @media (max-width: 768px) {
+            .charts {
+                grid-template-columns: 1fr;
+            }
+            
+            .cards {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>💰 Smart Expense Tracker</h1>
+            <p>
+                <span id="statusIndicator" class="status-indicator status-demo"></span>
+                <span id="statusText">Demo Mode - Connect your Google Sheet via Telegram bot</span>
+            </p>
+        </div>
+        
+        <div class="cards">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">💰</div>
+                    <h3>Total Spent This Month</h3>
+                </div>
+                <div class="value" id="totalSpent">$0.00</div>
+                <div class="change positive" id="spentChange">Loading...</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📝</div>
+                    <h3>Total Transactions</h3>
+                </div>
+                <div class="value" id="transactions">0</div>
+                <div class="change" id="transactionChange">Loading...</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <h3>Average Transaction</h3>
+                </div>
+                <div class="value" id="avgTransaction">$0.00</div>
+                <div class="change" id="avgChange">Loading...</div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🏆</div>
+                    <h3>Top Category</h3>
+                </div>
+                <div class="value" id="topCategory">-</div>
+                <div class="change" id="topCategoryAmount">$0.00</div>
+            </div>
+        </div>
+        
+        <div class="charts">
+            <div class="chart-container">
+                <h3>🏷️ Spending by Category</h3>
+                <div id="categoryChartContainer">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3>📈 Monthly Spending Trend</h3>
+                <div id="monthlyChartContainer">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Built with ❤️ using Python, Telegram Bot API, Google Sheets API, and OCR</p>
+            <p>Last updated: <span id="lastUpdated">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        let categoryChart = null;
+        let monthlyChart = null;
+
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                showLoading();
+                
+                const response = await fetch('/api/summary');
+                const data = await response.json();
+                
+                // Update cards
+                document.getElementById('totalSpent').textContent = `$${data.total_spent.toFixed(2)}`;
+                document.getElementById('transactions').textContent = data.transactions;
+                document.getElementById('avgTransaction').textContent = `$${data.avg_transaction.toFixed(2)}`;
+                
+                // Find top category
+                if (data.categories && Object.keys(data.categories).length > 0) {
+                    const topCategory = Object.entries(data.categories)
+                        .sort(([,a], [,b]) => b - a)[0];
+                    document.getElementById('topCategory').textContent = topCategory[0];
+                    document.getElementById('topCategoryAmount').textContent = `$${topCategory[1].toFixed(2)}`;
+                } else {
+                    document.getElementById('topCategory').textContent = 'No data';
+                    document.getElementById('topCategoryAmount').textContent = '$0.00';
+                }
+                
+                // Update change indicators (demo values for now)
+                document.getElementById('spentChange').textContent = 'This month';
+                document.getElementById('transactionChange').textContent = 'Total count';
+                document.getElementById('avgChange').textContent = 'Per transaction';
+                
+                // Update timestamp
+                document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+                
+                await loadCharts();
+                hideLoading();
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                hideLoading();
+            }
+        }
+        
+        async function loadCharts() {
+            try {
+                // Load category chart
+                const categoryResponse = await fetch('/api/chart/category');
+                const categoryData = await categoryResponse.json();
+                
+                if (categoryChart) {
+                    categoryChart.destroy();
+                }
+                
+                const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+                categoryChart = new Chart(categoryCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: categoryData.labels,
+                        datasets: [{
+                            data: categoryData.data,
+                            backgroundColor: categoryData.colors,
+                            borderWidth: 0,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    usePointStyle: true,
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed || 0;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // Load monthly chart
+                const monthlyResponse = await fetch('/api/chart/monthly');
+                const monthlyData = await monthlyResponse.json();
+                
+                if (monthlyChart) {
+                    monthlyChart.destroy();
+                }
+                
+                const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+                monthlyChart = new Chart(monthlyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: monthlyData.labels,
+                        datasets: [{
+                            label: 'Monthly Spending',
+                            data: monthlyData.data,
+                            borderColor: '#2196F3',
+                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#2196F3',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Spent: $${context.parsed.y.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value;
+                                    },
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error loading charts:', error);
+            }
+        }
+        
+        function showLoading() {
+            document.querySelectorAll('.card .value').forEach(el => {
+                el.textContent = '...';
+            });
+            document.querySelectorAll('.card .change').forEach(el => {
+                el.textContent = 'Loading...';
+            });
+        }
+        
+        function hideLoading() {
+            // Loading is hidden when data is loaded
+        }
+        
+        // Auto-refresh every 5 minutes
+        setInterval(loadDashboard, 5 * 60 * 1000);
+        
+        // Load dashboard on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (categoryChart) categoryChart.resize();
+            if (monthlyChart) monthlyChart.resize();
+        });
+    </script>
+</body>
+</html>
